@@ -1,0 +1,211 @@
+# 📘 ACL-GPU-00 深度学习服务器使用指南
+
+> **服务器 IP:** `10.198.119.245`
+> **硬件配置:** 4x NVIDIA RTX 5090 | AMD EPYC 9254 | 256GB RAM
+> **位置:** Hwlab X235
+
+欢迎使用 Hwlab 高性能计算节点。为了确保服务器的稳定与安全，请严格遵循本指南进行账户初始化。
+
+---
+
+## 🛑 第一步：初次登录与安全加固 (必须执行)
+
+### 1.1 通过 SSH 登录
+
+请先按照官方指南登录 DTU HPC：[https://www.hpc.dtu.dk/?page_id=2501](https://www.hpc.dtu.dk/?page_id=2501)
+
+在 DTU HPC 节点的终端中，运行以下命令连接本服务器：
+
+```bash
+ssh username@10.198.119.245
+
+```
+
+* **默认初始密码:** `ChangeMeNow`
+
+### 1.2 立即修改密码！
+
+出于安全考虑，你**必须**在首次登录后修改密码。
+在服务器终端运行以下命令：
+
+```bash
+passwd
+
+```
+
+* 输入当前密码 (`ChangeMeNow`)。
+* 输入两次新的强密码。
+* *(注意：输入密码时屏幕上不会显示字符)*。
+
+---
+
+## 🔑 第二步：配置 SSH 免密登录 (推荐)
+
+配置 SSH 密钥以便无需每次输入密码即可登录。
+
+### 2.1 生成密钥对 (在你的本地电脑上)
+
+*请在**你的本地电脑**终端执行此操作，而不是在服务器上：*
+
+```bash
+ssh-keygen -t ed25519 -C "your_email@example.com"
+# 一路回车即可
+
+```
+
+### 2.2 将公钥复制到服务器
+
+*在**你的本地电脑**终端执行：*
+
+```bash
+ssh-copy-id username@10.198.119.245
+
+```
+
+* 最后一次输入你的服务器新密码。
+* **成功：** 现在你可以免密登录了。
+
+---
+
+## 🐙 第三步：Github 配置
+
+为了直接在服务器上克隆仓库，需将服务器的 SSH 密钥添加到你的 Github 账户。
+
+### 3.1 生成密钥 (在服务器上)
+
+*在**服务器**终端执行：*
+
+```bash
+ssh-keygen -t ed25519 -C "hwlab_server_key"
+# 一路回车即可
+
+```
+
+### 3.2 获取公钥内容
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+
+```
+
+* **复制** 输出内容中以 `ssh-ed25519` 开头的那部分。
+
+### 3.3 添加到 Github
+
+1. 打开 [Github SSH 设置页面](https://github.com/settings/keys)。
+2. 点击 **New SSH key**。
+3. **Title (标题):** `Hwlab Server`。
+4. **Key (密钥):** 粘贴刚才复制的内容。
+5. **Test (测试):** 运行 `ssh -T git@github.com` (你应该能看到欢迎信息)。
+
+---
+
+## 🐍 第四步：Python 环境 (Conda)
+
+我们使用 **Miniconda** 来管理 Python 环境。请勿使用系统自带的 Python。
+
+### 4.1 安装 Miniconda
+
+```bash
+mkdir -p ~/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+rm -rf ~/miniconda3/miniconda.sh
+
+# 初始化 Shell
+~/miniconda3/bin/conda init bash
+source ~/.bashrc
+
+```
+
+### 4.2 创建你的专属环境
+
+永远不要在 `base` 环境中运行实验。
+
+```bash
+# 创建一个名为 'lab_env' 的新环境，指定 python 版本
+conda create -n lab_env python=3.10
+
+# 激活环境
+conda activate lab_env
+
+# 安装 Pytorch (示例)
+pip install torch torchvision torchaudio
+
+```
+
+---
+
+## 🖥️ 第五步：进程管理与 GUI 禁令
+
+### ⚠️ 严禁安装 GUI (图形界面)
+
+**严禁**安装任何桌面环境 (Gnome, XFCE) 或远程桌面工具 (TeamViewer, VNC, ToDesk)。
+
+* **原因：** GUI 会占用宝贵的显存/内存，并导致驱动不稳定。
+* **后果：** 违反此规则的用户将被封号。
+
+### ✅ 请使用 Tmux
+
+使用 **Tmux** 可以在你断开连接后保持训练继续运行。
+
+**安装 Tmux:**
+
+```bash
+sudo apt update && sudo apt install tmux -y
+
+```
+
+**Tmux 速查表:**
+
+* `tmux new -s experiment1`: 创建一个名为 "experiment1" 的新会话。
+* **挂起 (保持后台运行):** 按 `Ctrl + B`，松开，再按 `D`。
+* `tmux attach -t experiment1`: 重连回会话。
+* `tmux ls`: 列出所有活跃会话。
+
+---
+
+## 📊 第六步：监控工具
+
+跑实验前务必检查资源占用情况，避免冲突。
+
+### 6.1 安装工具
+
+```bash
+# 系统监控
+sudo apt install htop btop -y
+
+# 显卡监控 (强烈推荐)
+pip install nvitop
+
+```
+
+### 6.2 如何查看
+
+* **`nvitop`:** 实时显示 GPU 显存、利用率和用户进程。**运行 `python train.py` 前必看！**
+* **`btop`:** CPU 和内存使用情况的可视化界面。
+
+---
+
+## 📂 附录：存储与文件传输
+
+### 存储规范
+
+* **`/home/username/`**: 仅存放 **代码** 和 **脚本**。
+* **大数据集 (如 ImageNet)**: **严禁**解压到 home 目录。请向管理员询问数据盘路径。
+* **临时文件**: 实验结束后请清理。
+
+### 文件传输 (SCP)
+
+从你的**本地电脑**传输文件到服务器：
+
+```bash
+# 上传文件
+scp local_file.zip username@10.198.119.245:/home/username/
+
+# 上传文件夹
+scp -r local_folder username@10.198.119.245:/home/username/
+
+```
+
+---
