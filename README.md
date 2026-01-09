@@ -1,10 +1,4 @@
-# ACL-GPU-00-User-Guide
-
-Here is the professional English version of the `README.md`. You can copy this directly into your GitHub repository or save it as a file on the server.
-
----
-
-# 📘 Hwlab Deep Learning Server Guide
+# 📘ACL-GPU-00-User-Guide
 
 > **Server IP:** `10.198.119.245`
 > **Hardware:** 4x NVIDIA RTX 5090 | AMD EPYC 9254 | 256GB RAM
