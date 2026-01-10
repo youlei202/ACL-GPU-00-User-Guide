@@ -1,10 +1,11 @@
-# 📘ACL-GPU-00-User-Guide
+# 📘 ACL-GPU-00 User Guide
 
 > **Server IP:** `10.198.119.245`
 > **Hardware:** 4x NVIDIA RTX 5090 | AMD EPYC 9254 | 256GB RAM
 > **Location:** Hwlab X235
 
-Welcome to the Hwlab High-Performance Computing Node. To ensure the stability and security of the server, please follow this guide strictly to initialize your account.
+Welcome to the Hwlab High-Performance Computing Node.
+**Please Note:** This server is a shared resource. **Users do not have `sudo` (root) privileges.** All software installations must be managed via Conda or within your home directory.
 
 ---
 
@@ -12,7 +13,7 @@ Welcome to the Hwlab High-Performance Computing Node. To ensure the stability an
 
 ### 1.1 Login via SSH
 
-Login to DTU HPC following the guide: https://www.hpc.dtu.dk/?page_id=2501
+Login to DTU HPC following the guide: [https://www.hpc.dtu.dk/?page_id=2501](https://www.hpc.dtu.dk/?page_id=2501)
 
 From your terminal at DTU HPC node, run:
 
@@ -21,7 +22,7 @@ ssh username@10.198.119.245
 
 ```
 
-* **Default Password:** `ChangeMeNow`
+* **Default Password:** `ChangeMeNow` (Or the one provided by admin)
 
 ### 1.2 Change Password Immediately!
 
@@ -33,7 +34,7 @@ passwd
 
 ```
 
-* Enter the current password (`ChangeMeNow`).
+* Enter the current password.
 * Enter your new strong password twice.
 * *(Note: Characters will not appear on screen while typing)*.
 
@@ -102,7 +103,7 @@ cat ~/.ssh/id_ed25519.pub
 
 ## 🐍 Step 4: Python Environment (Conda)
 
-We use **Miniconda** to manage Python environments. Do not use the system Python.
+Since you do not have root access, **Miniconda** is the only way to manage dependencies.
 
 ### 4.1 Install Miniconda
 
@@ -148,11 +149,13 @@ pip install torch torchvision torchaudio
 ### ✅ Use Tmux
 
 Use **Tmux** to keep your training running even if you disconnect.
+Since you don't have sudo, install tmux via Conda if it's not available:
 
-**Install Tmux:**
+**Install Tmux (User Level):**
 
 ```bash
-sudo apt update && sudo apt install tmux -y
+# Ensure you are in your conda base environment or lab_env
+conda install -c conda-forge tmux
 
 ```
 
@@ -167,23 +170,31 @@ sudo apt update && sudo apt install tmux -y
 
 ## 📊 Step 6: Monitoring Tools
 
-Always check resource availability before running experiments to avoid conflicts.
+Always check resource availability before running experiments.
 
-### 6.1 Install Tools
+### 6.1 Install Tools (No Sudo Required)
+
+We use Conda and Pip to install monitoring tools into your user space.
 
 ```bash
-# System monitoring
-sudo apt install htop btop -y
+# Install CPU/Memory monitoring tools
+conda install -c conda-forge htop btop
 
-# GPU monitoring (Highly Recommended)
+# Install GPU monitoring (Highly Recommended)
 pip install nvitop
 
 ```
 
 ### 6.2 How to Check
 
-* **`nvitop`:** Real-time GPU usage, memory, and user processes. **Check this before running `python train.py`!**
+* **`nvitop`:** Real-time GPU usage. **MANDATORY: Check this before running `python train.py`!**
+* Run with: `nvitop -m` (Monitor mode)
+
+
 * **`btop`:** CPU and RAM usage visualization.
+* Run with: `btop`
+
+
 
 ---
 
@@ -192,7 +203,10 @@ pip install nvitop
 ### Storage Rules
 
 * **`/home/username/`**: For **Code** and **Scripts** only.
-* **Large Datasets (e.g., ImageNet)**: **DO NOT** extract to your home directory. Ask the admin for the Data Disk path.
+* **Large Datasets**: **DO NOT** extract large datasets (e.g., ImageNet) to your home directory.
+* Please check the **`/archive`** or **`/work`** directory (or ask the admin for the path).
+
+
 * **Temporary Files**: Please clean up after experiments.
 
 ### File Transfer (SCP)
@@ -201,13 +215,10 @@ To transfer files from your **local computer** to the server:
 
 ```bash
 # Upload a file
-scp local_file.zip username@10.198.119.245:/home/username/
+scp local_file.zip username@10.198.119.245:~/
 
 # Upload a folder
-scp -r local_folder username@10.198.119.245:/home/username/
+scp -r local_folder username@10.198.119.245:~/
 
 ```
 
----
-
-*Last Updated: 2026-01-09*
