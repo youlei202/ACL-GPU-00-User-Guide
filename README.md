@@ -44,9 +44,9 @@ passwd
 
 Setup SSH keys to log in without typing your password every time.
 
-### 2.1 Generate Key Pair (On YOUR Local Computer)
+### 2.1 Generate Key Pair
 
-*Run this on your **local machine**, NOT the server:*
+*Run this on your **DTU HPC terminal**, NOT the server:*
 
 ```bash
 ssh-keygen -t ed25519 -C "your_email@example.com"
@@ -56,7 +56,7 @@ ssh-keygen -t ed25519 -C "your_email@example.com"
 
 ### 2.2 Copy Key to Server
 
-*Run this on your **local machine**:*
+*Run this on your **DTU HPC terminal**:*
 
 ```bash
 ssh-copy-id username@10.198.119.245
