@@ -13,7 +13,7 @@ Welcome to the Hwlab High-Performance Computing Node.
 
 ### 1.1 Login via SSH
 
-Login to DTU HPC following the guide: [https://www.hpc.dtu.dk/?page_id=2501](https://www.hpc.dtu.dk/?page_id=2501)
+**First, you must login to DTU HPC** following the guide: [https://www.hpc.dtu.dk/?page_id=2501](https://www.hpc.dtu.dk/?page_id=2501)
 
 From your terminal at DTU HPC node, run:
 
