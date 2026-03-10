@@ -9,216 +9,398 @@ Welcome to the Hwlab High-Performance Computing Node.
 
 ---
 
-## 🛑 Step 1: First Login & Security (Mandatory)
+# DTU HPC jump host + internal server (10.198.119.245) tunnel (VS Code Remote-SSH)
 
-### 1.1 Login via SSH
+Goal: use **VS Code** to edit/run code on `10.198.119.245` (via Remote-SSH). Because you must first log in to DTU HPC (login nodes) as a jump host, we use a **local SSH tunnel**: forward remote `10.198.119.245:22` to your local `localhost:2222`, so VS Code only needs to connect to `localhost:2222` (the `lab245-tunnel` host below).
 
-**First, you must login to DTU HPC** following the guide: [https://www.hpc.dtu.dk/?page_id=2501](https://www.hpc.dtu.dk/?page_id=2501)
+> Reboot / network changes / sleep will break the tunnel. Start it again when that happens.
 
-From your terminal at DTU HPC node, run:
+---
+
+## 0) Parameters
+
+- DTU username: `username`
+- Jump hosts (pick any): `login.hpc.dtu.dk` / `login1.hpc.dtu.dk` / `login2.hpc.dtu.dk`
+- Target internal server: `10.198.119.245`
+- Local tunnel port: `2222`
+
+---
+
+## 0.1 Where to start (important)
+
+Many users **already** have passwordless SSH set up (they already have a private key such as `~/.ssh/id_rsa` or `~/.ssh/id_ed25519`). In that case, you do **not** need to generate/install new keys.
+
+### A. Test: can you already SSH into HPC without typing your HPC password?
+
+On your laptop/desktop, run (replace `username`):
+
+```bash
+ssh username@login1.hpc.dtu.dk
+```
+
+- If you can log in **without typing your HPC account password** (you might be asked for your local key passphrase, or DTU interactive/MFA prompts—those are fine), then:
+  - **Skip Section 2 (installing your public key on HPC)**
+  - In Section 1, you can also skip “generate HPC key” (unless you want a dedicated key).
+- If you see `Permission denied` / it keeps asking for your HPC password: follow Sections 1–2.
+
+### B. Test: can you already SSH into 10.198.119.245 (via the HPC jump host) without typing the target password?
+
+On your laptop/desktop, run:
+
+```bash
+ssh -J username@login1.hpc.dtu.dk username@10.198.119.245
+```
+
+- If you can log in **without typing the target account password**:
+  - **Skip Section 3 (installing your public key on 10.198.119.245)**
+- Otherwise: follow Section 3.
+
+---
+
+## 1) Prepare SSH keys (you may reuse one key, or use two separate keys)
+
+> You do **not** have to use different keys for HPC and for `10.198.119.245`.
+>
+> - **Option 1: reuse one key (simplest)** — keep using your existing `id_rsa` / `id_ed25519` for both HPC and the target host.
+> - **Option 2: separate keys (recommended)** — one key dedicated to the HPC jump host, and another dedicated to the target host (clearer separation).
+
+Check what you already have:
+
+```bash
+ls -al ~/.ssh
+```
+
+If you see `id_rsa` or `id_ed25519` (and the matching `.pub`), you can usually reuse it.
+
+### 1.1 (Optional) Generate a dedicated “jump host key” (for HPC)
+
+If you already have passwordless SSH to HPC, you can skip this.
+
+```bash
+mkdir -p ~/.ssh
+ssh-keygen -t ed25519 -f ~/.ssh/dtu_hpc
+```
+
+Files:
+- Private key: `~/.ssh/dtu_hpc`
+- Public key: `~/.ssh/dtu_hpc.pub`
+
+### 1.2 (Optional) Generate a dedicated “target host key” (for 10.198.119.245)
+
+If you want a separate key for the target host:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/lab245_key -C "username@10.198.119.245"
+```
+
+Files:
+- Private key: `~/.ssh/lab245_key`
+- Public key: `~/.ssh/lab245_key.pub`
+
+> If you prefer reusing one key for everything, you can skip this section and later point `IdentityFile` to your existing `~/.ssh/id_rsa` or `~/.ssh/id_ed25519`.
+
+---
+
+## 2) Install your public key on DTU HPC (for passwordless jump host login)
+
+> If test 0.1A already works for you: **skip this section**.
+
+### 2.1 Pick which public key to install on HPC
+
+Typical choices:
+
+- Existing key: `~/.ssh/id_rsa.pub` or `~/.ssh/id_ed25519.pub`
+- New dedicated jump key: `~/.ssh/dtu_hpc.pub`
+
+We’ll refer to it as `PUBKEY` below.
+
+### 2.2 Recommended: ssh-copy-id (usually available on macOS/Linux)
+
+```bash
+PUBKEY=~/.ssh/dtu_hpc.pub  # <- change to your .pub
+ssh-copy-id -i "$PUBKEY" username@login1.hpc.dtu.dk
+```
+
+### 2.3 Manual method (works everywhere)
+
+1) Log in to HPC:
+
+```bash
+ssh username@login1.hpc.dtu.dk
+```
+
+2) On the HPC login node, run:
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+cat >> ~/.ssh/authorized_keys
+# On your local machine, run: cat <your-public-key>.pub
+# Copy the full line (ssh-ed25519 / ssh-rsa ...), paste it here, press Enter
+# Press Ctrl-D to finish
+chmod 600 ~/.ssh/authorized_keys
+```
+
+---
+
+## 3) Install your public key on 10.198.119.245 (for passwordless target login)
+
+> If test 0.1B already works for you: **skip this section**.
+
+### 3.1 Log in to 10.198.119.245
+
+Pick one:
+
+**Option A (recommended: from your local machine via jump host):**
+
+```bash
+ssh -J username@login1.hpc.dtu.dk username@10.198.119.245
+```
+
+**Option B (if you are already inside an HPC login node):**
 
 ```bash
 ssh username@10.198.119.245
-
 ```
 
-* **Default Password:** `ChangeMeNow` (Or the one provided by admin)
+### 3.2 Add your public key to the target host
 
-### 1.2 Change Password Immediately!
-
-For security reasons, you **must** change your password upon your first login.
-Run the following command in the server terminal:
+On `10.198.119.245`, run:
 
 ```bash
-passwd
-
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+cat >> ~/.ssh/authorized_keys
+# On your local machine, run: cat <your-public-key>.pub
+# Copy the full line, paste it here, press Enter
+# Press Ctrl-D to finish
+chmod 600 ~/.ssh/authorized_keys
 ```
 
-* Enter the current password.
-* Enter your new strong password twice.
-* *(Note: Characters will not appear on screen while typing)*.
+> You may install **the same** public key on both HPC and the target host, or different ones.
 
 ---
 
-## 🔑 Step 2: Configure SSH Keys (Recommended)
+## 4) Configure your local ~/.ssh/config (with login/login1/login2 fallback)
 
-Setup SSH keys to log in without typing your password every time.
+Edit `~/.ssh/config` and add (replace `username` and `IdentityFile` paths to match your setup):
 
-### 2.1 Generate Key Pair
+```sshconfig
+### --- DTU HPC jump hosts ---
+Host dtu-login dtu-login1 dtu-login2
+  User username
+  # IdentityFile can be your existing id_rsa/id_ed25519,
+  # or the dedicated jump key ~/.ssh/dtu_hpc
+  IdentityFile ~/.ssh/dtu_hpc
+  IdentitiesOnly yes
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
+  ConnectTimeout 8
 
-*Run this on your **DTU HPC terminal**, NOT the server:*
+Host dtu-login
+  HostName login.hpc.dtu.dk
 
-```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
-# Press Enter to accept defaults
+Host dtu-login1
+  HostName login1.hpc.dtu.dk
 
+Host dtu-login2
+  HostName login2.hpc.dtu.dk
+
+### --- target behind DTU (10.198.119.245) ---
+Host lab245
+  HostName 10.198.119.245
+  User username
+  # You can reuse the same key as above,
+  # or use a dedicated key ~/.ssh/lab245_key
+  IdentityFile ~/.ssh/lab245_key
+  IdentitiesOnly yes
+  ProxyCommand sh -c 'ssh -o ConnectTimeout=5 -W %h:%p dtu-login || ssh -o ConnectTimeout=5 -W %h:%p dtu-login1 || ssh -o ConnectTimeout=5 -W %h:%p dtu-login2'
+
+### --- local tunnel endpoint (for VS Code Remote-SSH / testing) ---
+Host lab245-tunnel
+  HostName localhost
+  Port 2222
+  User username
+  # Usually use the same key as Host lab245
+  IdentityFile ~/.ssh/lab245_key
+  IdentitiesOnly yes
 ```
 
-### 2.2 Copy Key to Server
+> If you use ssh-agent and don’t want to hardcode `IdentityFile`, you can remove the `IdentityFile ...` lines and let OpenSSH pick the key.
 
-*Run this on your **DTU HPC terminal**:*
-
-```bash
-ssh-copy-id username@10.198.119.245
-
-```
-
-* Enter your new server password one last time.
-* **Success:** You can now log in without a password.
-
----
-
-## 🐙 Step 3: Github Configuration
-
-To clone repositories directly to the server, add the server's SSH key to your GitHub account.
-
-### 3.1 Generate Key (On Server)
-
-*Run this on the **server**:*
+Validate:
 
 ```bash
-ssh-keygen -t ed25519 -C "hwlab_server_key"
-# Press Enter to accept defaults
-
-```
-
-### 3.2 Get the Public Key
-
-```bash
-cat ~/.ssh/id_ed25519.pub
-
-```
-
-* **Copy** the output starting with `ssh-ed25519`.
-
-### 3.3 Add to Github
-
-1. Go to [Github SSH Settings](https://github.com/settings/keys).
-2. Click **New SSH key**.
-3. **Title:** `Hwlab Server`.
-4. **Key:** Paste the copied key.
-5. **Test:** `ssh -T git@github.com` (You should see a welcome message).
-
----
-
-## 🐍 Step 4: Python Environment (Conda)
-
-Since you do not have root access, **Miniconda** is the only way to manage dependencies.
-
-### 4.1 Install Miniconda
-
-```bash
-mkdir -p ~/miniconda3
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-rm -rf ~/miniconda3/miniconda.sh
-
-# Initialize Shell
-~/miniconda3/bin/conda init bash
-source ~/.bashrc
-
-```
-
-### 4.2 Create Your Environment
-
-Never run experiments in the `base` environment.
-
-```bash
-# Create a new environment named 'lab_env'
-conda create -n lab_env python=3.10
-
-# Activate it
-conda activate lab_env
-
-# Install Pytorch (Example)
-pip install torch torchvision torchaudio
-
+ssh -v dtu-login1
+ssh -v lab245
 ```
 
 ---
 
-## 🖥️ Step 5: Process Management & GUI Ban
+## 5) Create the local tunnel
 
-### ⚠️ STRICT NO-GUI POLICY
-
-**DO NOT** install any Desktop Environments (Gnome, XFCE) or Remote Desktop Tools (TeamViewer, VNC, ToDesk).
-
-* **Reason:** GUIs consume valuable VRAM/RAM and cause driver instability.
-* **Penalty:** Users violating this rule will have their accounts suspended.
-
-### ✅ Use Tmux
-
-Use **Tmux** to keep your training running even if you disconnect.
-Since you don't have sudo, install tmux via Conda if it's not available:
-
-**Install Tmux (User Level):**
+### 5.1 Start the tunnel (background, with login/login1/login2 fallback)
 
 ```bash
-# Ensure you are in your conda base environment or lab_env
-conda install -c conda-forge tmux
-
+ssh -fN -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 2222:10.198.119.245:22 dtu-login \
+|| ssh -fN -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 2222:10.198.119.245:22 dtu-login1 \
+|| ssh -fN -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 2222:10.198.119.245:22 dtu-login2
 ```
 
-**Tmux Cheatsheet:**
+> `-fN` will move SSH to the background after authentication. Password/MFA input won’t echo—this is normal.
 
-* `tmux new -s experiment1`: Create a new session named "experiment1".
-* **Detach (Keep running):** Press `Ctrl + B`, release, then press `D`.
-* `tmux attach -t experiment1`: Re-enter the session.
-* `tmux ls`: List all active sessions.
+### 5.2 Check the tunnel
+
+Check if port 2222 is listening:
+
+```bash
+lsof -iTCP:2222 -sTCP:LISTEN -n -P
+```
+
+Probe the SSH connection:
+
+```bash
+ssh lab245-tunnel 'echo TUNNEL_OK && hostname'
+```
+
+### 5.3 Stop the tunnel
+
+```bash
+lsof -ti tcp:2222 | xargs kill
+```
 
 ---
 
-## 📊 Step 6: Monitoring Tools
+## 6) Optional: autossh (auto-reconnect)
 
-Always check resource availability before running experiments.
-
-### 6.1 Install Tools (No Sudo Required)
-
-We use Conda and Pip to install monitoring tools into your user space.
+Install:
 
 ```bash
-# Install CPU/Memory monitoring tools
-conda install -c conda-forge htop btop
-
-# Install GPU monitoring (Highly Recommended)
-pip install nvitop
-
+brew install autossh
 ```
 
-### 6.2 How to Check
+Start (pick a stable login host, e.g. `dtu-login1`):
 
-* **`nvitop`:** Real-time GPU usage. **MANDATORY: Check this before running `python train.py`!**
-* Run with: `nvitop -m` (Monitor mode)
+```bash
+autossh -M 0 -fN \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 2222:10.198.119.245:22 \
+  dtu-login1
+```
 
+Stop:
 
-* **`btop`:** CPU and RAM usage visualization.
-* Run with: `btop`
-
-
+```bash
+pkill autossh
+lsof -ti tcp:2222 | xargs kill
+```
 
 ---
 
-## 📂 Appendix: Storage & File Transfer
+## 7) VS Code setup (Remote-SSH to localhost:2222)
 
-### Storage Rules
+> If `ssh lab245-tunnel` (or `ssh lab245`) works in your terminal, VS Code should work too.
 
-* **`/home/username/`**: For **Code** and **Scripts** only.
-* **Large Datasets**: **DO NOT** extract large datasets (e.g., ImageNet) to your home directory.
-* Please check the **`/archive`** or **`/work`** directory (or ask the admin for the path).
+### 7.1 Install VS Code extensions
 
+Install these extensions:
 
-* **Temporary Files**: Please clean up after experiments.
+- **Remote - SSH** (`ms-vscode-remote.remote-ssh`)
+- **Python** (`ms-python.python`)
+- (Optional) **Jupyter** (`ms-toolsai.jupyter`) if you run notebooks remotely
 
-### File Transfer (SCP)
+### 7.2 Method A: connect through the local tunnel (recommended)
 
-To transfer files from your **local computer** to the server:
+1) Make sure the tunnel is running (Section 5/6) and probe it:
 
 ```bash
-# Upload a file
-scp local_file.zip username@10.198.119.245:~/
-
-# Upload a folder
-scp -r local_folder username@10.198.119.245:~/
-
+ssh lab245-tunnel 'echo TUNNEL_OK && hostname'
 ```
 
+2) In VS Code, open Command Palette:
+
+- macOS: `⌘ + Shift + P`
+- Windows/Linux: `Ctrl + Shift + P`
+
+Run:
+
+- `Remote-SSH: Connect to Host...`
+
+Select **`lab245-tunnel`** (from your `~/.ssh/config`).
+
+3) On first connect you may be asked the remote platform—choose **Linux**.
+
+4) Once connected, the bottom-left should show `>< SSH: lab245-tunnel`.
+
+### 7.3 Method B: connect directly via the jump host (optional, no local port 2222)
+
+If you don’t want to maintain a local tunnel, VS Code Remote-SSH can also use the `ProxyCommand` of `lab245` from Section 4:
+
+1) Command Palette → `Remote-SSH: Connect to Host...`
+
+2) Select **`lab245`**
+
+### 7.4 Open a remote folder and run commands
+
+After connecting:
+
+- `File → Open Folder...` and choose a remote directory (e.g. `/home/username/`)
+- `Terminal → New Terminal` runs on the remote side
+
+Quick sanity checks:
+
+```bash
+hostname
+whoami
+pwd
+python3 -V
+```
+
+### 7.5 Select the remote Python interpreter
+
+1) Command Palette in the remote VS Code window:
+
+- `Python: Select Interpreter`
+
+2) Choose the interpreter you want (system `python3`, conda env, venv, ...).
+
+Example: create a venv on the remote host:
+
+```bash
+python3 -m venv ~/venvs/lab245
+source ~/venvs/lab245/bin/activate
+python -m pip install -U pip
+# pip install -r requirements.txt
+```
+
+Then select:
+
+- `~/venvs/lab245/bin/python`
+
+### 7.6 Common issues
+
+- **Can’t connect / stuck**: first confirm `ssh lab245-tunnel` (or `ssh lab245`) works in a terminal; fix SSH/tunnel first (Sections 1–6).
+- **`Permission denied (publickey)`**: check your `IdentityFile` paths and whether you installed the correct public key into `~/.ssh/authorized_keys` on the right machine.
+- **VS Code Server install fails (quota/permission)**: clean `~/.vscode-server` on the remote host and check your home quota.
+
+---
+
+## 8) ⚠️ Warning: DTU/HPC may refuse some networks (Connection refused)
+
+Symptoms:
+
+- `nc -vz github.com 22` works
+- but `nc -vz login1.hpc.dtu.dk 22` returns `Connection refused`
+
+This usually means DTU/HPC blocks your current public IP/network. SSH/tunnels won’t work.
+
+Suggested fixes:
+1) Connect to **DTU VPN**
+2) Or switch networks (mobile hotspot / other Wi‑Fi)
